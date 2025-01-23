@@ -33,7 +33,7 @@ public class SecurityConfig {
         http.csrf(csrf -> csrf.disable())
             .authorizeHttpRequests((authz) -> authz
                 .requestMatchers("/professor/logar", "/professor/cadastrar").permitAll()
-                .requestMatchers("/professor/**").authenticated()
+                .requestMatchers("/professor/**", "/curso/**").authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);

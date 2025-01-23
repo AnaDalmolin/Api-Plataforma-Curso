@@ -14,111 +14,86 @@ import com.example.desafio01.desafio01.security.JwtUtil;
 
 @Service
 public class ProfessorService {
-    
+
     @Autowired
-    private ProfessorRepository professorRepository;    
+    private ProfessorRepository professorRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
-    
+
     @Autowired
     private JwtUtil jwtUtil;
 
-    public Boolean createProfessor(Professor professor) {
-        
-        try{
+    private static final String PROFESSOR_NAO_ENCONTRADO = "Professor não encontrado";
+    private static final String ERRO_AO_SALVAR = "Erro ao salvar professor";
+    private static final String ERRO_AO_ATUALIZAR = "Erro ao atualizar professor";
+    private static final String ERRO_AO_LOGAR = "Erro ao logar professor";
+    private static final String ERRO_AO_BUSCAR = "Erro ao buscar professor";
 
-            var senhaCriptografada = passwordEncoder.encode(professor.getSenha());
-
-            professor.setSenha(senhaCriptografada);
-
+    public Boolean createProfessor(final Professor professor) {
+        try {
+            professor.setSenha(encryptPassword(professor.getSenha()));
             professorRepository.save(professor);
-            
             return true;
-
-        }catch(Exception e){
-
-            throw new ProfessorServerException( "Erro ao salvar professor", e.getMessage());
-        
+        } catch (Exception e) {
+            throw new ProfessorServerException(ERRO_AO_SALVAR, e.getMessage());
         }
     }
 
-    public Boolean editProfessor(Professor professor) {
+    public Boolean editProfessor(final Professor professor) {
         try {
             Professor existingProfessor = professorRepository.findById(professor.getId())
-                .orElseThrow(() -> 
-                new ProfessorServerException("Erro ao atualizar professor", "Professor não encontrado"));
+                    .orElseThrow(() -> new ProfessorServerException(ERRO_AO_ATUALIZAR, PROFESSOR_NAO_ENCONTRADO));
 
             existingProfessor.setNome(professor.getNome());
             existingProfessor.setEmail(professor.getEmail());
+
             if (professor.getSenha() != null && !professor.getSenha().isEmpty()) {
-                var senhaCriptografada = passwordEncoder.encode(professor.getSenha());
-                existingProfessor.setSenha(senhaCriptografada);
+                existingProfessor.setSenha(encryptPassword(professor.getSenha()));
             }
 
             professorRepository.save(existingProfessor);
             return true;
         } catch (Exception e) {
-            throw new ProfessorServerException("Erro ao atualizar professor", e.getMessage());
+            throw new ProfessorServerException(ERRO_AO_ATUALIZAR, e.getMessage());
         }
     }
 
-    public String loginProfessor(Professor professor) {
-        
-        try{
-            
-            var professorEncontrado = professorRepository.findByEmail(professor.getEmail())
-                .orElseThrow(() -> {
-                    throw new ProfessorServerException( "Erro ao logar professor", "Professor não encontrado");
-                });
-            
-            var senhaCorreta = passwordEncoder.matches(professor.getSenha(), professorEncontrado.getSenha());
-            if (!senhaCorreta) {
-                throw new ProfessorServerException( "Erro ao logar professor", "Senha incorreta");
+    public String loginProfessor(final Professor professor) {
+        try {
+            Professor foundProfessor = professorRepository.findByEmail(professor.getEmail())
+                    .orElseThrow(() -> new ProfessorServerException(ERRO_AO_LOGAR, PROFESSOR_NAO_ENCONTRADO));
+
+            if (!passwordEncoder.matches(professor.getSenha(), foundProfessor.getSenha())) {
+                throw new ProfessorServerException(ERRO_AO_LOGAR, "Senha incorreta");
             }
 
-            professor.setId(professorEncontrado.getId());
-            professor.setNome(professorEncontrado.getNome());
-            
-            var token = jwtUtil.generateToken(professor.getEmail());
-            return token;
-
-        }catch(Exception e){
-
-            throw new ProfessorServerException( "Erro ao logar professor", e.getMessage());
-        
-        }
-    }
-
-    public Professor getProfessorById(UUID id) {
-        try {
-            
-            Professor professor = professorRepository.findById(id)
-                .orElseThrow(() -> new ProfessorServerException("Erro ao buscar professor", "Professor não encontrado"));
-            
-            return professor;
-            
+            return jwtUtil.generateToken(foundProfessor.getEmail());
         } catch (Exception e) {
-
-            throw new ProfessorServerException("Erro ao buscar professor", e.getMessage());
+            throw new ProfessorServerException(ERRO_AO_LOGAR, e.getMessage());
         }
     }
-    
+
+    public Professor getProfessorById(final UUID id) {
+        return professorRepository.findById(id)
+                .orElseThrow(() -> new ProfessorServerException(ERRO_AO_BUSCAR, PROFESSOR_NAO_ENCONTRADO));
+    }
+
     public List<Professor> getAll() {
         try {
-            
             List<Professor> professors = professorRepository.findAll();
-            
+
             if (professors.isEmpty()) {
-                throw new ProfessorServerException("Erro ao buscar professores", "Nenhum professor encontrado");
+                throw new ProfessorServerException(ERRO_AO_BUSCAR, "Nenhum professor encontrado");
             }
-            
+
             return professors;
-            
         } catch (Exception e) {
-    
-            throw new ProfessorServerException("Erro ao buscar professor", e.getMessage());
+            throw new ProfessorServerException(ERRO_AO_BUSCAR, e.getMessage());
         }
     }
 
+    private String encryptPassword(final String rawPassword) {
+        return passwordEncoder.encode(rawPassword);
+    }
 }
